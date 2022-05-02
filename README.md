@@ -1,5 +1,7 @@
 # OCI Playground
 
+[View diff](https://github.com/project-zot/zot/compare/main...oci-playground:main)
+
 To build:
 ```
 make binary
