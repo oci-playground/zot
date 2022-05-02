@@ -341,7 +341,7 @@ type ImageManifest struct {
 // @Produce application/vnd.oci.image.manifest.v1+json
 // @Param   name     			path    string     true        "repository name"
 // @Param   reference     path    string     true        "image reference or digest"
-// @Success 200 {object} 	api.ImageIndex
+// @Success 200 {object} 	api.ImageManifest
 // @Header  200 {object} constants.DistContentDigestKey
 // @Failure 404 {string} string "not found"
 // @Failure 500 {string} string "internal server error"
@@ -401,7 +401,7 @@ type ImageIndex struct {
 // @Produce application/vnd.oci.image.index.v1+json
 // @Param   name     			path    string     true        "repository name"
 // @Param   digest     path    string     true        "digest"
-// @Success 200 {object} 	api.ImageManifest
+// @Success 200 {object} 	api.ImageIndex
 // @Failure 404 {string} string "not found"
 // @Failure 500 {string} string "internal server error"
 // @Router /v2/{name}/references/{digest} [get].
