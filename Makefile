@@ -13,8 +13,8 @@ GOLINTER_VERSION := v1.45.2
 NOTATION := $(TOOLSDIR)/bin/notation
 BATS := $(TOOLSDIR)/bin/bats
 TESTDATA := $(TOP_LEVEL)/test/data
-OS ?= linux
-ARCH ?= amd64
+OS ?= $(shell go env GOOS)
+ARCH ?= $(shell go env GOARCH)
 BENCH_OUTPUT ?= stdout
 
 .PHONY: all

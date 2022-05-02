@@ -1113,6 +1113,10 @@ func (is *ObjectStorage) GetBlobContent(repo, digest string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func (is *ObjectStorage) GetReferences(repo, digest string) (ispec.Index, error) {
+	return ispec.Index{}, zerr.ErrMethodNotSupported
+}
+
 func (is *ObjectStorage) GetReferrers(repo, digest, mediaType string) ([]artifactspec.Descriptor, error) {
 	return nil, zerr.ErrMethodNotSupported
 }

@@ -1,3 +1,20 @@
+# OCI Playground
+
+To build:
+```
+make binary
+```
+
+To run:
+```
+bin/zot-* serve examples/config-conformance.json
+```
+
+To test:
+```
+curl -v http://localhost:8080/v2/myrepo/references/sha256:f6d0597d725e89075c9010d63fcbe4eb0b36ac15db9cfa504695ee2b17940eba
+```
+
 # zot [![build-test](https://github.com/project-zot/zot/actions/workflows/ci-cd.yml/badge.svg?branch=main)](https://github.com/project-zot/zot/actions/workflows/ci-cd.yml) [![codecov.io](http://codecov.io/github/project-zot/zot/coverage.svg?branch=main)](http://codecov.io/github/project-zot/zot?branch=main) [![Conformance Results](https://github.com/project-zot/zot/workflows/conformance/badge.svg)](https://github.com/project-zot/zot/actions?query=workflow%3Aconformance) [![CodeQL](https://github.com/project-zot/zot/workflows/CodeQL/badge.svg)](https://github.com/project-zot/zot/actions?query=workflow%3ACodeQL)
 
 **zot**: a production-ready vendor-neutral OCI image registry - images stored in [OCI image format](https://github.com/opencontainers/image-spec), [distribution specification](https://github.com/opencontainers/distribution-spec) on-the-wire, that's it!

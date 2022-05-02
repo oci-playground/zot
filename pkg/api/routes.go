@@ -12,6 +12,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -34,6 +35,7 @@ import (
 	"zotregistry.io/zot/pkg/log"
 	"zotregistry.io/zot/pkg/storage"
 	"zotregistry.io/zot/pkg/test" // nolint: goimports
+
 	// as required by swaggo.
 	_ "zotregistry.io/zot/swagger"
 )
@@ -91,6 +93,8 @@ func (rh *RouteHandler) SetupRoutes() {
 			rh.UpdateBlobUpload).Methods("PUT")
 		prefixedRouter.HandleFunc(fmt.Sprintf("/{name:%s}/blobs/uploads/{session_id}", NameRegexp.String()),
 			rh.DeleteBlobUpload).Methods("DELETE")
+		prefixedRouter.HandleFunc(fmt.Sprintf("/{name:%s}/references/{digest}", NameRegexp.String()),
+			rh.GetReferences).Methods(allowedMethods("GET")...)
 		prefixedRouter.HandleFunc("/_catalog",
 			rh.ListRepositories).Methods(allowedMethods("GET")...)
 		prefixedRouter.HandleFunc("/",
@@ -337,7 +341,7 @@ type ImageManifest struct {
 // @Produce application/vnd.oci.image.manifest.v1+json
 // @Param   name     			path    string     true        "repository name"
 // @Param   reference     path    string     true        "image reference or digest"
-// @Success 200 {object} 	api.ImageManifest
+// @Success 200 {object} 	api.ImageIndex
 // @Header  200 {object} constants.DistContentDigestKey
 // @Failure 404 {string} string "not found"
 // @Failure 500 {string} string "internal server error"
@@ -384,6 +388,51 @@ func (rh *RouteHandler) GetManifest(response http.ResponseWriter, request *http.
 
 	response.Header().Set(constants.DistContentDigestKey, digest)
 	WriteData(response, http.StatusOK, mediaType, content)
+}
+
+type ImageIndex struct {
+	ispec.Index
+}
+
+// GetReferences godoc
+// @Summary Get references for a given digest
+// @Description Get references given a digest
+// @Accept  json
+// @Produce application/vnd.oci.image.index.v1+json
+// @Param   name     			path    string     true        "repository name"
+// @Param   digest     path    string     true        "digest"
+// @Success 200 {object} 	api.ImageManifest
+// @Failure 404 {string} string "not found"
+// @Failure 500 {string} string "internal server error"
+// @Router /v2/{name}/references/{digest} [get].
+func (rh *RouteHandler) GetReferences(response http.ResponseWriter, request *http.Request) {
+	vars := mux.Vars(request)
+	name, ok := vars["name"]
+	if !ok || name == "" {
+		response.WriteHeader(http.StatusNotFound)
+		return
+	}
+	digest, ok := vars["digest"]
+	if !ok || digest == "" {
+		WriteJSON(response,
+			http.StatusNotFound,
+			NewErrorList(NewError(MANIFEST_UNKNOWN, map[string]string{"digest": digest})))
+		return
+	}
+	imgStore := rh.getImageStore(name)
+	references, err := getReferences(rh, imgStore, name, digest)
+	if err != nil {
+		rh.c.Log.Error().Err(err).Str("name", name).Str("digest", digest).Msg("unable to get references")
+		response.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	out, err := json.Marshal(references)
+	if err != nil {
+		rh.c.Log.Error().Err(err).Str("name", name).Str("digest", digest).Msg("unable to marshall json")
+		response.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	WriteData(response, http.StatusOK, ispec.MediaTypeImageIndex, out)
 }
 
 // UpdateManifest godoc
@@ -1351,6 +1400,26 @@ func getImageManifest(routeHandler *RouteHandler, imgStore storage.ImageStore, n
 	}
 
 	return content, digest, mediaType, err
+}
+
+func getReferences(routeHandler *RouteHandler, imgStore storage.ImageStore, name, digest string) (ispec.Index, error) {
+	references, err := imgStore.GetReferences(name, digest)
+	if err != nil {
+		if routeHandler.c.Config.Extensions != nil &&
+			routeHandler.c.Config.Extensions.Sync != nil &&
+			*routeHandler.c.Config.Extensions.Sync.Enable {
+			routeHandler.c.Log.Info().Msgf("signature not found, trying to get signature %s:%s by syncing on demand",
+				name, digest)
+			errSync := ext.SyncOneImage(routeHandler.c.Config, routeHandler.c.StoreController,
+				name, digest, true, routeHandler.c.Log)
+			if errSync != nil {
+				routeHandler.c.Log.Error().Err(err).Str("name", name).Str("digest", digest).Msg("unable to get references")
+				return ispec.Index{}, err
+			}
+			references, err = imgStore.GetReferences(name, digest)
+		}
+	}
+	return references, err
 }
 
 // will sync referrers on demand if they are not found, in case sync extensions is enabled.

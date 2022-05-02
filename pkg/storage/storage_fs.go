@@ -1443,6 +1443,13 @@ func (is *ImageStoreFS) DeleteBlob(repo, digest string) error {
 	return nil
 }
 
+func (is *ImageStoreFS) GetReferences(repo, digest string) (ispec.Index, error) {
+	// TODO: implement it
+	index := ispec.Index{}
+	index.SchemaVersion = 2
+	return index, nil
+}
+
 func (is *ImageStoreFS) GetReferrers(repo, digest, mediaType string) ([]artifactspec.Descriptor, error) {
 	var lockLatency time.Time
 

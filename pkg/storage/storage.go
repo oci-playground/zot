@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	ispec "github.com/opencontainers/image-spec/specs-go/v1"
 	artifactspec "github.com/oras-project/artifacts-spec/specs-go/v1"
 )
 
@@ -44,5 +45,6 @@ type ImageStore interface {
 	GetIndexContent(repo string) ([]byte, error)
 	GetBlobContent(repo, digest string) ([]byte, error)
 	GetReferrers(repo, digest string, mediaType string) ([]artifactspec.Descriptor, error)
+	GetReferences(repo, digest string) (ispec.Index, error)
 	RunGCPeriodically(gcInterval time.Duration)
 }
