@@ -1489,10 +1489,74 @@ func (is *ImageStoreFS) DeleteBlob(repo, digest string) error {
 }
 
 func (is *ImageStoreFS) GetReferences(repo, digest string) (ispec.Index, error) {
-	// TODO: implement it
-	index := ispec.Index{}
-	index.SchemaVersion = 2
-	return index, nil
+	var lockLatency time.Time
+
+	dir := path.Join(is.rootDir, repo)
+	if !is.DirExists(dir) {
+		return ispec.Index{}, zerr.ErrRepoNotFound
+	}
+
+	_, err := godigest.Parse(digest)
+	if err != nil {
+		is.log.Error().Err(err).Str("digest", digest).Msg("failed to parse digest")
+		return ispec.Index{}, zerr.ErrBadBlobDigest
+	}
+
+	is.RLock(&lockLatency)
+	defer is.RUnlock(&lockLatency)
+
+	buf, err := ioutil.ReadFile(path.Join(dir, "index.json"))
+	if err != nil {
+		is.log.Error().Err(err).Str("dir", dir).Msg("failed to read index.json")
+		if os.IsNotExist(err) {
+			return ispec.Index{}, zerr.ErrRepoNotFound
+		}
+		return ispec.Index{}, err
+	}
+
+	var index ispec.Index
+	if err := json.Unmarshal(buf, &index); err != nil {
+		is.log.Error().Err(err).Str("dir", dir).Msg("invalid JSON")
+		return ispec.Index{}, err
+	}
+
+	// First locate a list a digests that link to this digest
+	links := map[string]*ispec.Descriptor{}
+	for _, m := range index.Manifests {
+		if m.Digest.String() == digest {
+			if val, ok := m.Annotations[propEAnnotation]; ok {
+				for _, digestStr := range strings.Split(val, ",") {
+					links[digestStr] = nil
+				}
+			}
+			break
+		}
+	}
+
+	// Next, loop through the index to find the link descriptors
+	for _, desc := range index.Manifests {
+		digestStr := desc.Digest.String()
+		if _, ok := links[digestStr]; ok {
+			links[digestStr] = &desc
+		}
+	}
+
+	// Convert map to list and make sure no nil keys
+	manifests := []ispec.Descriptor{}
+	for k, v := range links {
+		if v == nil {
+			is.log.Error().Err(err).Str("digest", digest).Str("link", k).
+				Msg("unable to find link in index")
+			return ispec.Index{}, zerr.ErrUnknownCode
+		}
+		manifests = append(manifests, *v)
+	}
+
+	resultIndex := ispec.Index{}
+	resultIndex.SchemaVersion = 2
+	resultIndex.MediaType = ispec.MediaTypeImageIndex
+	resultIndex.Manifests = manifests
+	return resultIndex, nil
 }
 
 func (is *ImageStoreFS) GetReferrers(repo, digest, mediaType string) ([]artifactspec.Descriptor, error) {
