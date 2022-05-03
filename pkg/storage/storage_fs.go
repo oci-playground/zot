@@ -1521,12 +1521,12 @@ func (is *ImageStoreFS) GetReferences(repo, digest string) (ispec.Index, error) 
 	}
 
 	// First locate a list a digests that link to this digest
-	links := map[string]*ispec.Descriptor{}
+	links := map[string]ispec.Descriptor{}
 	for _, m := range index.Manifests {
 		if m.Digest.String() == digest {
 			if val, ok := m.Annotations[propEAnnotation]; ok {
 				for _, digestStr := range strings.Split(val, ",") {
-					links[digestStr] = nil
+					links[digestStr] = ispec.Descriptor{}
 				}
 			}
 			break
@@ -1537,19 +1537,19 @@ func (is *ImageStoreFS) GetReferences(repo, digest string) (ispec.Index, error) 
 	for _, desc := range index.Manifests {
 		digestStr := desc.Digest.String()
 		if _, ok := links[digestStr]; ok {
-			links[digestStr] = &desc
+			links[digestStr] = desc
 		}
 	}
 
 	// Convert map to list and make sure no nil keys
 	manifests := []ispec.Descriptor{}
 	for k, v := range links {
-		if v == nil {
+		if v.Size == 0 {
 			is.log.Error().Err(err).Str("digest", digest).Str("link", k).
 				Msg("unable to find link in index")
 			return ispec.Index{}, zerr.ErrUnknownCode
 		}
-		manifests = append(manifests, *v)
+		manifests = append(manifests, v)
 	}
 
 	resultIndex := ispec.Index{}
