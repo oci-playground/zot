@@ -523,6 +523,17 @@ func (is *ImageStoreFS) validateOCIManifest(repo, reference string, manifest *is
 		}
 	}
 
+	// if the manifest contains a reference, make sure it is valid
+	ref := manifest.Reference
+	if digest := ref.Digest; digest.String() != "" {
+		blobPath = is.BlobPath(repo, digest)
+		is.log.Info().Str("blobPath", blobPath).Str("reference", reference).Msg("manifest reference")
+		if _, err := os.Stat(blobPath); err != nil {
+			is.log.Error().Err(err).Str("blobPath", blobPath).Msg("unable to find blob")
+			return digest.String(), zerr.ErrBlobNotFound
+		}
+	}
+
 	return "", nil
 }
 
