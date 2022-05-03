@@ -40,6 +40,7 @@ const (
 	DefaultDirPerms  = 0o700
 	RLOCK            = "RLock"
 	RWLOCK           = "RWLock"
+	propEAnnotation  = "org.opencontainers.links"
 )
 
 // BlobUpload models and upload request.
@@ -561,6 +562,7 @@ func (is *ImageStoreFS) PutImageManifest(repo, reference, mediaType string,
 		return "", zerr.ErrBadManifest
 	}
 
+	var referenceDescriptor *ispec.Descriptor
 	if mediaType == ispec.MediaTypeImageManifest {
 		var manifest ispec.Manifest
 		if err := json.Unmarshal(body, &manifest); err != nil {
@@ -577,6 +579,8 @@ func (is *ImageStoreFS) PutImageManifest(repo, reference, mediaType string,
 				return digest, err
 			}
 		}
+
+		referenceDescriptor = &manifest.Reference
 	} else if mediaType == artifactspec.MediaTypeArtifactManifest {
 		var m notation.Descriptor
 		if err := json.Unmarshal(body, &m); err != nil {
@@ -666,6 +670,36 @@ func (is *ImageStoreFS) PutImageManifest(repo, reference, mediaType string,
 			index.Manifests = append(index.Manifests[:midx], index.Manifests[midx+1:]...)
 
 			break
+		}
+	}
+
+	// If the "reference" field is provided, mark it as an annotation on
+	// the manifest that it points to (a comma-separated list)
+	// TODO: we should address this issue in the WG
+	if updateIndex && referenceDescriptor != nil {
+		refDigestStr := referenceDescriptor.Digest.String()
+		for _, manifest := range index.Manifests {
+			if manifest.Digest.String() == refDigestStr {
+				var existingRefs []string
+				incomingManifestDigestStr := mDigest.String()
+				if val, ok := manifest.Annotations[propEAnnotation]; ok {
+					existingRefs = strings.Split(val, ",")
+					shouldAppend := true
+					for _, v := range existingRefs {
+						if v == incomingManifestDigestStr {
+							shouldAppend = false
+							break
+						}
+					}
+					if shouldAppend {
+						existingRefs = append(existingRefs, incomingManifestDigestStr)
+					}
+				} else {
+					existingRefs = []string{incomingManifestDigestStr}
+				}
+				manifest.Annotations[propEAnnotation] = strings.Join(existingRefs, ",")
+				break
+			}
 		}
 	}
 

@@ -9,6 +9,8 @@ make binary
 
 To run:
 ```
+rm -rf /tmp/zot
+
 bin/zot-* serve examples/config-conformance.json
 ```
 
