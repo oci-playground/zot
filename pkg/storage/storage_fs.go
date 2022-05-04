@@ -1549,6 +1549,8 @@ func (is *ImageStoreFS) GetReferences(repo, digest string) (ispec.Index, error) 
 				Msg("unable to find link in index")
 			return ispec.Index{}, zerr.ErrUnknownCode
 		}
+		// Unset the "platform" field
+		v.Platform = nil
 		manifests = append(manifests, v)
 	}
 
