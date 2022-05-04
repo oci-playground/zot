@@ -1551,6 +1551,11 @@ func (is *ImageStoreFS) GetReferences(repo, digest string) (ispec.Index, error) 
 		}
 		// Unset the "platform" field
 		v.Platform = nil
+		// Drop the name if it is "latest"
+		tag, ok := v.Annotations[ispec.AnnotationRefName]
+		if ok && tag == "latest" {
+			delete(v.Annotations, ispec.AnnotationRefName)
+		}
 		manifests = append(manifests, v)
 	}
 
